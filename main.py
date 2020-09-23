@@ -215,7 +215,6 @@ def avg_rank_for_most_answered_question(stu_quest_dic, stu_friend_dic, data_df):
         friend_list = stu_friend_dic[stu_id]
         friend_quest_rank = 0
         my_quest_rank = 0
-        # מציאת דירוג שלי
         temp_list = rank_question_dic[stu_id]
         for i in temp_list:
             if i[0] == question_num:
