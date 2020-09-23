@@ -4,37 +4,30 @@ import numpy as np
 import pandas as pd
 import csv
 from collections import Counter
-from itertools import chain
-from sklearn.model_selection import train_test_split
 
 data = pd.read_csv('data.csv')
-# making data frame from csv file
-data_df = pd.read_csv("data.csv")
-data_df.columns = [c.replace(' ', '_') for c in data_df.columns]
-data_df.columns = [c.replace('(', '') for c in data_df.columns]
-data_df.columns = [c.replace(')', '') for c in data_df.columns]
 
 new_data = data[['Anon Student Id', 'Problem Name', 'Correct Step Duration (sec)', 'Error Step Duration (sec)','Correct First Attempt']]
 Student_Id = new_data['Anon Student Id']
-stud_dic = {i: [] for i in Student_Id}
+student_dic = {i: [] for i in Student_Id}
 first_attempt_dict = {i: [] for i in Student_Id}
 for i in range(new_data.shape[0]):
     stu_id = new_data.iloc[i]['Anon Student Id']
-    stud_dic[stu_id].append(new_data.iloc[i]['Problem Name'])
+    student_dic[stu_id].append(new_data.iloc[i]['Problem Name'])
     first_attempt_dict[stu_id].append({new_data.iloc[i]['Problem Name']:new_data.iloc[i]['Correct First Attempt']})
 
 
-
-def histograma(stud_dic):
-    his ={ i : 0 for i in range(73)}
-    for key, value in stud_dic.items():
-        his[len(value)] += 1
-    for i in range(73):
-        if his[i] == 0:
-            del his[i]
-    objects = his.keys()
+def histogram(student_dic):
+    max_answer_question = 73
+    hist = {i: 0 for i in range(max_answer_question)}
+    for key, value in student_dic.items():
+        hist[len(value)] += 1
+    for i in range(max_answer_question):
+        if hist[i] == 0:
+            del hist[i]
+    objects = hist.keys()
     y_pos = np.arange(len(objects))
-    performance = his.values()
+    performance = hist.values()
     plt.bar(y_pos, performance, align='center', alpha=0.5, width=0.5)
     plt.xticks(np.arange(0, 1, step=0.6))
     plt.xticks(y_pos, objects)
@@ -42,10 +35,17 @@ def histograma(stud_dic):
     plt.ylabel('num_of_student')
     plt.title('histogram of data')
     plt.show()
-histograma(stud_dic)
+histogram(student_dic)
 
-def create_rank(data_df, stud_dic):
-    rank_dic ={i : 0 for i in stud_dic.keys()}
+
+# making data frame from csv file
+data_df = pd.read_csv("data.csv")
+data_df.columns = [c.replace(' ', '_') for c in data_df.columns]
+data_df.columns = [c.replace('(', '') for c in data_df.columns]
+data_df.columns = [c.replace(')', '') for c in data_df.columns]
+
+def create_rank(data_df, student_dic):
+    rank_dic = {i: 0 for i in student_dic.keys()}
     for (idx, row) in data_df.iterrows():
         student_id = row.Anon_Student_Id
         if row.Correct_First_Attempt == 1:
@@ -56,7 +56,7 @@ def create_rank(data_df, stud_dic):
         if time != 0:
             rank_dic[student_id] += 1/time
     sum = 0
-    for key , value in stud_dic.items():
+    for key, value in student_dic.items():
         if rank_dic[key] < 0:
             rank_dic[key] = 0
         else:
@@ -64,16 +64,18 @@ def create_rank(data_df, stud_dic):
                 rank_dic[key] = 0
             rank_dic[key] = rank_dic[key] / len(value)
             sum += rank_dic[key]
-    for key, value in stud_dic.items():
+    for key, value in student_dic.items():
         rank_dic[key] = rank_dic[key] / sum
     return rank_dic
-rank = create_rank(data_df, stud_dic)
 
 
-## find the most closet students
+rank = create_rank(data_df, student_dic)
+
+
+## find the most closest students
 def find_most_close(rank):
     list_closest = list()
-    s1 =[]
+    s1 = []
     for i in range(0, 51):
         list_closest.append(1000)
         s1.append('')
@@ -136,7 +138,7 @@ def find_most_answered_question(closest_dic, stud_dic, first_attempt_dict):
             sum += 1
     return stu_quest_dic , stu_friend_dic
 
-stu_quest_dic, stu_friend_dic = find_most_answered_question( closest_dic, stud_dic, first_attempt_dict)
+stu_quest_dic, stu_friend_dic = find_most_answered_question(closest_dic, student_dic, first_attempt_dict)
 
 def remove_empty_students(stu_quest_dic, stu_friend_dic):
     stu_quest_dic_new = {}
@@ -217,7 +219,7 @@ def recommend_result(closest_dic , stud_dic, result_dic):
                     recommended_question[key].append(j)
     return recommended_question
 
-reccomended_question = recommend_result(closest_dic , stud_dic, result_dic)
+reccomended_question = recommend_result(closest_dic, student_dic, result_dic)
 
 
 
