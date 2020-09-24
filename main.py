@@ -5,37 +5,28 @@ import pandas as pd
 import csv
 from collections import Counter
 
-data = pd.read_csv('data.csv')
+class CsvReader:
+    def __init__(self):
+        pass
 
-new_data = data[['Anon Student Id', 'Problem Name', 'Correct Step Duration (sec)', 'Error Step Duration (sec)','Correct First Attempt']]
-Student_Id = new_data['Anon Student Id']
-student_dic = {i: [] for i in Student_Id}
-first_attempt_dict = {i: [] for i in Student_Id}
-for i in range(new_data.shape[0]):
-    stu_id = new_data.iloc[i]['Anon Student Id']
-    student_dic[stu_id].append(new_data.iloc[i]['Problem Name'])
-    first_attempt_dict[stu_id].append({new_data.iloc[i]['Problem Name']:new_data.iloc[i]['Correct First Attempt']})
+    def read_all_csv(self, filename):
+        print(str(filename)+'.csv')
+        return pd.read_csv(str(filename)+'.csv')
+
+    def read_partial_csv(self, data, colunms):
+        return data[colunms]
 
 
-def histogram(student_dic):
-    max_answer_question = 73
-    hist = {i: 0 for i in range(max_answer_question)}
-    for key, value in student_dic.items():
-        hist[len(value)] += 1
-    for i in range(max_answer_question):
-        if hist[i] == 0:
-            del hist[i]
-    objects = hist.keys()
-    y_pos = np.arange(len(objects))
-    performance = hist.values()
-    plt.bar(y_pos, performance, align='center', alpha=0.5, width=0.5)
-    plt.xticks(np.arange(0, 1, step=0.6))
-    plt.xticks(y_pos, objects)
-    plt.xlabel('num_of_questions')
-    plt.ylabel('num_of_student')
-    plt.title('histogram of data')
-    plt.show()
-histogram(student_dic)
+csv_file = CsvReader()
+data = csv_file.read_all_csv('data')
+partial_data = csv_file.read_partial_csv(data, ['Anon Student Id', 'Problem Name', 'Correct Step Duration (sec)', 'Error Step Duration (sec)', 'Correct First Attempt'])
+student_ids = partial_data['Anon Student Id']
+student_answerd_problems = {student_id: [] for student_id in student_ids}
+students_first_attempt = {i: [] for i in student_ids}
+for i in range(partial_data.shape[0]):
+    stu_id = partial_data.iloc[i]['Anon Student Id']
+    student_answerd_problems[stu_id].append(partial_data.iloc[i]['Problem Name'])
+    students_first_attempt[stu_id].append({partial_data.iloc[i]['Problem Name']:partial_data.iloc[i]['Correct First Attempt']})
 
 
 # making data frame from csv file
@@ -69,7 +60,7 @@ def create_rank(data_df, student_dic):
     return rank_dic
 
 
-rank = create_rank(data_df, student_dic)
+rank = create_rank(data_df, student_answerd_problems)
 
 
 ## find the most closest students
@@ -138,7 +129,7 @@ def find_most_answered_question(closest_dic, stud_dic, first_attempt_dict):
             sum += 1
     return stu_quest_dic , stu_friend_dic
 
-stu_quest_dic, stu_friend_dic = find_most_answered_question(closest_dic, student_dic, first_attempt_dict)
+stu_quest_dic, stu_friend_dic = find_most_answered_question(closest_dic, student_answerd_problems, students_first_attempt)
 
 def remove_empty_students(stu_quest_dic, stu_friend_dic):
     stu_quest_dic_new = {}
@@ -219,7 +210,7 @@ def recommend_result(closest_dic , stud_dic, result_dic):
                     recommended_question[key].append(j)
     return recommended_question
 
-reccomended_question = recommend_result(closest_dic, student_dic, result_dic)
+reccomended_question = recommend_result(closest_dic, student_answerd_problems, result_dic)
 
 
 
@@ -245,3 +236,23 @@ def print_results():
         print("sorry , you are not in the list, please try another Id")
 
 print_results()
+
+def histogram(student_dic):
+    max_answer_question = 73
+    hist = {i: 0 for i in range(max_answer_question)}
+    for key, value in student_dic.items():
+        hist[len(value)] += 1
+    for i in range(max_answer_question):
+        if hist[i] == 0:
+            del hist[i]
+    objects = hist.keys()
+    y_pos = np.arange(len(objects))
+    performance = hist.values()
+    plt.bar(y_pos, performance, align='center', alpha=0.5, width=0.5)
+    plt.xticks(np.arange(0, 1, step=0.6))
+    plt.xticks(y_pos, objects)
+    plt.xlabel('num_of_questions')
+    plt.ylabel('num_of_student')
+    plt.title('histogram of data')
+    plt.show()
+histogram(student_answerd_problems)
