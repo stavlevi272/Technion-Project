@@ -3,106 +3,105 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import csv
+import csv_reader
 from collections import Counter
 
-class CsvReader:
-    def __init__(self):
-        pass
+# class CsvReader:
+#     def __init__(self):
+#         pass
+#
+#     def read_all_csv(self, filename):
+#         return pd.read_csv(str(filename)+'.csv')
+#
+#     def read_partial_csv(self, data, colunms):
+#         return data[colunms]
 
-    def read_all_csv(self, filename):
-        print(str(filename)+'.csv')
-        return pd.read_csv(str(filename)+'.csv')
 
-    def read_partial_csv(self, data, colunms):
-        return data[colunms]
+def initial_dictionary_by_keys(keys):
+    return {key: [] for key in keys}
 
-
-csv_file = CsvReader()
+csv_file = csv_reader.CsvReader()
 data = csv_file.read_all_csv('data')
 partial_data = csv_file.read_partial_csv(data, ['Anon Student Id', 'Problem Name', 'Correct Step Duration (sec)', 'Error Step Duration (sec)', 'Correct First Attempt'])
 student_ids = partial_data['Anon Student Id']
-student_answerd_problems = {student_id: [] for student_id in student_ids}
-students_first_attempt = {i: [] for i in student_ids}
-for i in range(partial_data.shape[0]):
-    stu_id = partial_data.iloc[i]['Anon Student Id']
-    student_answerd_problems[stu_id].append(partial_data.iloc[i]['Problem Name'])
-    students_first_attempt[stu_id].append({partial_data.iloc[i]['Problem Name']:partial_data.iloc[i]['Correct First Attempt']})
-
-
-# making data frame from csv file
-data_df = pd.read_csv("data.csv")
+student_answerd_problems = initial_dictionary_by_keys(student_ids)
+students_first_attempt = initial_dictionary_by_keys(student_ids)
+for row_index in range(partial_data.shape[0]):
+    student_id = partial_data.iloc[row_index]['Anon Student Id']
+    student_answerd_problems[student_id].append(partial_data.iloc[row_index]['Problem Name'])
+    students_first_attempt[student_id].append({partial_data.iloc[row_index]['Problem Name']:partial_data.iloc[row_index]['Correct First Attempt']})
+data_df = csv_file.read_all_csv('data')
 data_df.columns = [c.replace(' ', '_') for c in data_df.columns]
 data_df.columns = [c.replace('(', '') for c in data_df.columns]
 data_df.columns = [c.replace(')', '') for c in data_df.columns]
 
-def create_rank(data_df, student_dic):
-    rank_dic = {i: 0 for i in student_dic.keys()}
+
+def calculate_students_problems_rank(data_df, student_answerd_problems):
+    students_problems_rank = {i: 0 for i in student_answerd_problems.keys()}
     for (idx, row) in data_df.iterrows():
         student_id = row.Anon_Student_Id
         if row.Correct_First_Attempt == 1:
-            rank_dic[student_id] += 1
+            students_problems_rank[student_id] += 1
             time = row.Correct_Step_Duration_sec
         else:
             time = row.Error_Step_Duration_sec
         if time != 0:
-            rank_dic[student_id] += 1/time
+            students_problems_rank[student_id] += 1/time
     sum = 0
-    for key, value in student_dic.items():
-        if rank_dic[key] < 0:
-            rank_dic[key] = 0
+    for key, value in student_answerd_problems.items():
+        if students_problems_rank[key] < 0:
+            students_problems_rank[key] = 0
         else:
-            if np.isnan(rank_dic[key]):
-                rank_dic[key] = 0
-            rank_dic[key] = rank_dic[key] / len(value)
-            sum += rank_dic[key]
-    for key, value in student_dic.items():
-        rank_dic[key] = rank_dic[key] / sum
-    return rank_dic
+            if np.isnan(students_problems_rank[key]):
+                students_problems_rank[key] = 0
+            students_problems_rank[key] = students_problems_rank[key] / len(value)
+            sum += students_problems_rank[key]
+    for key, value in student_answerd_problems.items():
+        students_problems_rank[key] = students_problems_rank[key] / sum
+    return students_problems_rank
 
 
-rank = create_rank(data_df, student_answerd_problems)
+students_problems_rank = calculate_students_problems_rank(data_df, student_answerd_problems)
 
 
 ## find the most closest students
-def find_most_close(rank):
-    list_closest = list()
-    s1 = []
-    for i in range(0, 51):
-        list_closest.append(1000)
-        s1.append('')
-    closest_dic = {i: s1 for i in rank.keys()}
-    students_list = list(rank.keys())
-    rank_list = list(rank.values())
-    list_len = len(rank_list)
-    sum = 0
-    for i in range(list_len):
-        list_closest =[]
+def find_the_most_closest_friends_by_rank(students_problems_rank):
+    closest_friends = list()
+    initial_list = []
+    for max_location in range(0, 51):
+        closest_friends.append(1000)
+        initial_list.append('')
+    students_closest_friends = {student_id: initial_list for student_id in students_problems_rank.keys()}
+    students = list(students_problems_rank.keys())
+    problems_rank = list(students_problems_rank.values())
+    num_of_students = len(students)
+    for i in range(num_of_students):
+        closest_friends = []
         for k in range(0, 51):
-            list_closest.append(1000)
-        for j in range(list_len):
-            sum = 0
+            closest_friends.append(1000)
+        for j in range(num_of_students):
             if i != j:
-                sum = abs(rank_list[i] - rank_list[j])
-                curr_max = max(list_closest)
-                if sum < curr_max:
-                    index = list_closest.index(max(list_closest))
-                    list_closest[index] = sum
-                    closest_dic[students_list[i]][index] = students_list[j]
+                distance = abs(problems_rank[i] - problems_rank[j])
+                current_max = max(closest_friends) 
+                if distance < current_max:
+                    max_location = closest_friends.index(max(closest_friends))
+                    closest_friends[max_location] = distance
+                    students_closest_friends[students[i]][max_location] = students[j]
             else:
                 continue
-    return closest_dic
-closest_dic = find_most_close(rank)
+    return students_closest_friends
+students_closest_friends = find_the_most_closest_friends_by_rank(students_problems_rank)
 
-def find_most_answered_question(closest_dic, stud_dic, first_attempt_dict):
+def find_most_answered_problem(students_closest_friends, student_answerd_problems, students_first_attempt):
     sum = 0
     count = 0
-    stu_quest_dic = {i: [] for i in closest_dic.keys()}
-    stu_friend_dic = {i : [] for i in closest_dic.keys()}
-    for key, value in stud_dic.items():
-        curr_max = 0
-        max_quest = 0
+    student_problems = initial_dictionary_by_keys(students_closest_friends.keys())
+    student_friends = initial_dictionary_by_keys(students_closest_friends.keys())
+    for key, value in student_answerd_problems.items():
+        current_max = 0
+        max_problem = 0
         friend_list_max = []
-        temp1 = first_attempt_dict[key]
+        temp1 = students_first_attempt[key]
         for i in range(len(value)):
             friend_list = []
             count = 0
@@ -110,26 +109,26 @@ def find_most_answered_question(closest_dic, stud_dic, first_attempt_dict):
             for t in temp1:
                 if list(t.keys())[0] == current_question:
                     first_attempt = t[current_question]
-            list_closest = closest_dic[key]
+            list_closest = students_closest_friends[key]
             for j in range(len(list_closest)):
-                list_friend_question = stud_dic[list_closest[j]]
+                list_friend_question = student_answerd_problems[list_closest[j]]
                 if current_question in list_friend_question:
                     count += 1
                     friend_list.append(list_closest[j])
-            if count > curr_max and first_attempt != 0:
-                max_quest = current_question
-                curr_max = count
+            if count > current_max and first_attempt != 0:
+                max_problem = current_question
+                current_max = count
                 friend_list_max = friend_list
-        if max_quest != 0:
-            stu_quest_dic[key].append(max_quest)
-            stu_quest_dic[key].append(curr_max)
-            stu_friend_dic[key] = friend_list_max
-    for key, value in stu_quest_dic.items():
+        if max_problem != 0:
+            student_problems[key].append(max_problem)
+            student_problems[key].append(current_max)
+            student_friends[key] = friend_list_max
+    for key, value in student_problems.items():
         if value == 0:
             sum += 1
-    return stu_quest_dic , stu_friend_dic
+    return student_problems , student_friends
 
-stu_quest_dic, stu_friend_dic = find_most_answered_question(closest_dic, student_answerd_problems, students_first_attempt)
+stu_quest_dic, stu_friend_dic = find_most_answered_problem(students_closest_friends, student_answerd_problems, students_first_attempt)
 
 def remove_empty_students(stu_quest_dic, stu_friend_dic):
     stu_quest_dic_new = {}
@@ -197,11 +196,11 @@ def calcuate_estimate_error(result_dic):
 calcuate_estimate_error(result_dic)
 
 
-def recommend_result(closest_dic , stud_dic, result_dic):
+def recommend_result(students_closest_friends , stud_dic, result_dic):
     recommended_question = {i: [] for i in result_dic.keys()}
     for key in result_dic.keys():
         my_question_list = stud_dic[key]
-        my_friends_list = closest_dic[key]
+        my_friends_list = students_closest_friends[key]
         for i in range(0 ,len(my_friends_list)):
             current_friend = my_friends_list[i]
             current_friend_questions = stud_dic[current_friend]
@@ -210,7 +209,7 @@ def recommend_result(closest_dic , stud_dic, result_dic):
                     recommended_question[key].append(j)
     return recommended_question
 
-reccomended_question = recommend_result(closest_dic, student_answerd_problems, result_dic)
+reccomended_question = recommend_result(students_closest_friends, student_answerd_problems, result_dic)
 
 
 
