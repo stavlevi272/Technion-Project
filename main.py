@@ -4,17 +4,6 @@ import numpy as np
 import pandas as pd
 import csv
 import csv_reader
-from collections import Counter
-
-# class CsvReader:
-#     def __init__(self):
-#         pass
-#
-#     def read_all_csv(self, filename):
-#         return pd.read_csv(str(filename)+'.csv')
-#
-#     def read_partial_csv(self, data, colunms):
-#         return data[colunms]
 
 
 def initial_dictionary_by_keys(keys):
@@ -64,7 +53,6 @@ def calculate_students_problems_rank(data_df, student_answerd_problems):
 students_problems_rank = calculate_students_problems_rank(data_df, student_answerd_problems)
 
 
-## find the most closest students
 def find_the_most_closest_friends_by_rank(students_problems_rank):
     closest_friends = list()
     initial_list = []
@@ -128,59 +116,64 @@ def find_most_answered_problem(students_closest_friends, student_answerd_problem
             sum += 1
     return student_problems , student_friends
 
-stu_quest_dic, stu_friend_dic = find_most_answered_problem(students_closest_friends, student_answerd_problems, students_first_attempt)
+student_problems , student_friends = find_most_answered_problem(students_closest_friends, student_answerd_problems, students_first_attempt)
 
-def remove_empty_students(stu_quest_dic, stu_friend_dic):
-    stu_quest_dic_new = {}
-    stu_friend_dic_new = {}
-    for key, val in stu_quest_dic.items():
+def remove_students_with_lass_than_5_friends(student_problems , student_friends):
+    student_problems_new = {}
+    student_friends_new = {}
+    for key, val in student_problems.items():
         if len(val) == 0 or val[1] == 1 or val[1] == 2 or val[1] == 3 or val[1] == 4:
             continue
         else:
-            stu_quest_dic_new[key] = val
-            stu_friend_dic_new[key] = stu_friend_dic[key]
-    return stu_quest_dic_new , stu_friend_dic_new
+            student_problems_new[key] = val
+            student_friends_new[key] = student_friends[key]
+    return student_problems_new , student_friends_new
 
-stu_quest_dic , stu_friend_dic = remove_empty_students(stu_quest_dic , stu_friend_dic)
+
+student_problems , student_friends = remove_students_with_lass_than_5_friends(student_problems , student_friends)
+
 
 def create_new_column(data_df):
-    data_df['Question_rank'] = data_df['Correct_First_Attempt'] + 1 / (data_df['Step_Duration_sec'])
+    data_df['Problem_rank'] = data_df['Correct_First_Attempt'] + 1 / (data_df['Step_Duration_sec'])
+
+
 create_new_column(data_df)
 
 
-def avg_grade_for_popular_question(stu_quest_dic, stu_friend_dic, data_df):
-    rank_question_dic = {i: [] for i in stu_quest_dic.keys()}
+def calculate_avg_rank_for_most_answerd_problem(student_problems, student_friends, data_df):
+    student_rank_problem = initial_dictionary_by_keys(student_problems.keys)
     for (idx, row) in data_df.iterrows():
         curr_student_id = row.Anon_Student_Id
-        curr_question = row.Problem_Name
-        curr_quest_rank = row.Question_rank
-        l = [curr_question, curr_quest_rank]
-        if curr_student_id in stu_quest_dic.keys():
-            rank_question_dic[curr_student_id].append(l)
-    result_dic = {i: {'my_rank' : 0,'friends_rank': 0} for i in stu_quest_dic.keys()}
-    for key, value in stu_quest_dic.items():
+        curr_problem = row.Problem_Name
+        curr_problem_rank = row.Problem_rank
+        #l = [curr_problem, curr_problem_rank]
+        if curr_student_id in student_problems.keys():
+            student_rank_problem[curr_student_id].append([curr_problem, curr_problem_rank])
+    result = {i: {'my_rank' : 0,'friends_rank': 0} for i in student_problems.keys()}
+    for key, value in student_problems.items():
         if len(value) == 0:
             continue
-        stu_id = key
-        question_num = value[0]
-        friend_list = stu_friend_dic[stu_id]
-        friend_quest_rank = 0
-        my_quest_rank = 0
+        student_id = key
+        problem_num = value[0]
+        friend_list = student_friends[student_id]
+        friend_problem_rank = 0
+        my_problem_rank = 0
         # find my rank
-        temp_list = rank_question_dic[stu_id]
+        temp_list = student_rank_problem[student_id]
         for i in temp_list:
-            if i[0] == question_num:
-                my_quest_rank = i[1]
-        result_dic[stu_id]['my_rank'] = my_quest_rank
+            if i[0] == problem_num:
+                my_problem_rank = i[1]
+        result[student_id]['my_rank'] = my_problem_rank
         for j in range(len(friend_list)):
-            temp_list = rank_question_dic[friend_list[j]]
+            temp_list = student_rank_problem[friend_list[j]]
             for k in temp_list:
-                if k[0] == question_num:
-                    friend_quest_rank += k[1]
-        result_dic[key]['friends_rank'] = friend_quest_rank / value[1]
-    return result_dic
+                if k[0] == problem_num:
+                    friend_problem_rank += k[1]
+        result[key]['friends_rank'] = friend_problem_rank / value[1]
+    return result
 
-result_dic = avg_grade_for_popular_question(stu_quest_dic, stu_friend_dic, data_df)
+
+result = calculate_avg_rank_for_most_answerd_problem(student_problems, student_friends, data_df)
 
 
 def calcuate_estimate_error(result_dic):
@@ -188,48 +181,49 @@ def calcuate_estimate_error(result_dic):
     sum = 0
     for key, value in result_dic.items():
         count += 1
-        d = value['friends_rank'] - value['my_rank']
-        sum += d*d
-    rmse = np.sqrt(sum/ (count))
+        distance = value['friends_rank'] - value['my_rank']
+        sum += distance*distance
+    rmse = np.sqrt(sum / (count))
     print('RMSE:', rmse)
 
-calcuate_estimate_error(result_dic)
+
+calcuate_estimate_error(result)
 
 
-def recommend_result(students_closest_friends , stud_dic, result_dic):
-    recommended_question = {i: [] for i in result_dic.keys()}
-    for key in result_dic.keys():
-        my_question_list = stud_dic[key]
+def recommend_result(students_closest_friends, student_answerd_problems, result):
+    recommended_problem = initial_dictionary_by_keys(result.keys)
+    for key in result.keys():
+        my_problem = student_answerd_problems[key]
         my_friends_list = students_closest_friends[key]
-        for i in range(0 ,len(my_friends_list)):
-            current_friend = my_friends_list[i]
-            current_friend_questions = stud_dic[current_friend]
-            for j in current_friend_questions:
-                if j not in recommended_question[key] and j not in my_question_list and len(recommended_question[key]) < 10:
-                    recommended_question[key].append(j)
-    return recommended_question
-
-reccomended_question = recommend_result(students_closest_friends, student_answerd_problems, result_dic)
+        for index in range(0 ,len(my_friends_list)):
+            current_friend = my_friends_list[index]
+            current_friend_problems = student_answerd_problems[current_friend]
+            for problem in current_friend_problems:
+                if problem not in recommended_problem[key] and problem not in my_problem and len(recommended_problem[key]) < 10:
+                    recommended_problem[key].append(problem)
+    return recommended_problem
 
 
+recommended_question = recommend_result(students_closest_friends, student_answerd_problems, result)
 
-def write_file_result(reccomended_question):
+
+def write_file_result(recommended_question):
     """writing lists to a csv files"""
     filename = 'results.csv'
     with open(filename, 'w') as csv_file:
         writer = csv.writer(csv_file, lineterminator='\n')
         fieldnames2 = ['Student_Id','Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10']
         writer.writerow(fieldnames2)
-        for key, value in reccomended_question.items():
+        for key, value in recommended_question.items():
             writer.writerow([key,value[0],value[1], value[2],value[3], value[4],value[5],value[6], value[7], value[8], value[9]])
-write_file_result(reccomended_question)
+write_file_result(recommended_question)
 
 def print_results():
     print('Enter your Id:')
     x = input()
     print('Hello, ' + x)
-    if x in reccomended_question.keys():
-        print("your recommended questions are: \n", reccomended_question[x])
+    if x in recommended_question.keys():
+        print("your recommended questions are: \n", recommended_question[x])
         print("Trust yourself, you know more than you think you do :)")
     else:
         print("sorry , you are not in the list, please try another Id")
